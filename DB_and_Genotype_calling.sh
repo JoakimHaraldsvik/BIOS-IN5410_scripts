@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --job-name=wc_copy 	#give jobs a name
+#SBATCH --job-name=DB_and_Genotype_calling 	#give jobs a name
 #SBATCH --account=ec34		#current project that we are on
 #SBATCH --nodes=1 		#number of nodes/CPU
 #SBATCH --ntasks=1		#how many tasks to run simutanously
@@ -22,16 +22,20 @@ module load BIOS-IN5410/HT-2023
 ##ACCEPT argument
 FILENAME=$1
 
-##Make a NEW directory called gvcf.
-mkdir -p $SUBMITDIR/gvcf
+## Create a gvcf.list
+ls *gvcf.gz > gvcf.list # This creates a text file wiht all the HaplotypeCalled.gvcf.gz filenames.
 
-##RUN HAPLOTYPE CALLER
-gatk HaplotypeCaller -R Orosv1mt.fasta \
--I $FILENAME --ploidy 1 -O gvcf/$FILENAME.gvcf.gz -ERC GVCF \
-2> gvcf/HaploCaller_$FILENAME.out
+## Force create and remove an empty directory (needed to prevent errors when running)
+mkdir -p ${FILENAME}_DB; rm -r ${FILENAME}_DB
 
-echo ’$FILENAME HaplotypeCalled’
+## Run GATK database import (2nd step)
+gatk GenomicsDBImport -V gvcf.list \
+--genomicsdb-workspace-path ${FILENAME}_DB \
+--intervals NC_004029.2
 
+## Run GATK genotype GVCF (3rd step)
+gatk GenotypeGVCFs -R ../Orosv1mt.fasta \
+-V gendb://${FILENAME}_DB -O ${FILENAME}.vcf.gz
 
 ## Message that you are done with the job
 echo "Finished running jobs"
